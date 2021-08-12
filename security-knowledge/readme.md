@@ -41,18 +41,48 @@ Spring Security, 这是一种基于 Spring AOP 和 Servlet 过滤器的安全的
 </repositories>
 ```
 
-# Authentication
+# 4.Authentication（身份验证）
 
 ### 架构组件
 
-* SecurityContextHolder - Spring Security 存储身份验证详细信息的地方
-* SecurityContext - 从 SecurityContextHolder 中获得，包含当前经过身份验证的用户的身份验证
-* Authentication - 身份验证，可以是AuthenticationManager的输入，以提供用户已提供用于身份验证的凭据，也可以是 SecurityContext中的当前用户
-* GrantedAuthority - 在身份验证中授予主体的权限(即角色、范围等)。
-* AuthenticationManager - 定义Spring Security filter如何执行身份认证的API
-* ProviderManager - AuthenticationManager最常见的实现
-* AuthenticationProvider - 由ProviderManager用于执行特定类型的身份验证
-*
+| 类名 | 描述 |
+|--- | --- |
+| SecurityContextHolder | Spring Security 存储身份验证详细信息的地方 |
+| SecurityContext | 从 SecurityContextHolder 中获得，包含当前经过身份验证的用户的身份验证 |
+| Authentication | 身份验证，可以是AuthenticationManager的输入，以提供用户已提供用于身份验证的凭据，也可以是 SecurityContext中的当前用户 |
+| GrantedAuthority | 在身份验证中授予主体的权限(即角色、范围等) |
+| AuthenticationManager | 定义Spring Security filter如何执行身份认证的API |
+| ProviderManager | AuthenticationManager最常见的实现 |
+| AuthenticationProvider | 由ProviderManager用于执行特定类型的身份验证 |
+| AbstractAuthenticationProcessingFilter | 用于身份验证的基本筛选器 |
+
+### 4.1.SecurityContextHolder
+
+Spring Security身份验证模型的核心是SecurityContextHolder。它包含SecurityContext
+
+![SecurityContextHolder](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/securitycontextholder.png)
+
+SecurityContextHolder是Spring Security存储身份验证的详细信息的地方。
+Spring Security并不关心SecurityContextHolder是如何填充的。
+如果它包含一个值，那么它将被用作当前经过身份验证的用户。
+
+例子，设置SecurityContextHolder
+```
+SecurityContext context = SecurityContextHolder.createEmptyContext();
+Authentication authentication= new TestingAuthenticationToken("username"， "password"， "ROLE_USER");
+context.setAuthentication(authentication);
+SecurityContextHolder.setContext(context);
+```
+
+代码描述:
+1. 我们首先创建一个空的SecurityContext． 重要的是创建一个新的SecurityContext实例而不是使用SecurityContextHolder.getContext () .setAuthentication(身份验证)以避免多个线程之间的竞争条件。
+2. 接下来，我们创建一个新的身份验证对象。Spring安全不关心什么类型身份验证的实现SecurityContext． 在这里,我们使用TestingAuthenticationToken因为它很简单。更常见的生产场景是UsernamePasswordAuthenticationToken (userDetails,密码,当局)．
+3. 最后，我们设置SecurityContext在SecurityContextHolder
+
+
+
+
+
 
 Spring Security身份认证主要有两个目的:
 
