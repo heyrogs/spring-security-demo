@@ -177,16 +177,156 @@ AbstractAuthenticationProcessingFilter 用作对用户凭据进行身份验证�
 ![AbstractAuthenticationProcessingFilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/abstractauthenticationprocessingfilter.png)
 
 具体描述:
-1. 当用户提交他们的凭证时，AbstractAuthenticationProcessingFilter 会创建一个 Authentication，从 HttpServletRequest 到 Authentication。Authentication 创建以后，依赖AbstractAuthenticationProcessingFilter的子类。
-例如 用户名和密码提交到 HttpServletRequest后，UsernamePasswordAuthenticationFilter 创建一个 UsernamePasswordAuthenticationToken。
+
+1. 当用户提交他们的凭证时，AbstractAuthenticationProcessingFilter 会创建一个 Authentication，从 HttpServletRequest 到
+   Authentication。Authentication 创建以后，依赖AbstractAuthenticationProcessingFilter的子类。 例如 用户名和密码提交到
+   HttpServletRequest后，UsernamePasswordAuthenticationFilter 创建一个 UsernamePasswordAuthenticationToken。
 2. 接下来将 Authentication 传递给 AuthenticationManager 进行身份验证。
 3. 如果身份验证失败，则失败。
+
 * SecurityContextHolder 被清除
 * RememberMeServices。loginFail被调用。如果记得我没有配置，这是一个no-op。
 * AuthenticationFailureHandler被调用。
+
 4. 如果身份验证成功，则成功。
+
 * 通知SessionAuthenticationStrategy一个新的登录。
 * 认证是在SecurityContextHolder上设置的。稍后SecurityContextPersistenceFilter将SecurityContext保存到HttpSession。
 * RememberMeServices。loginSuccess被调用。如果记得我没有配置，这是一个no-op。
 * ApplicationEventPublisher发布一个InteractiveAuthenticationSuccessEvent。
 * AuthenticationSuccessHandler被调用。
+
+# 5.用户密码身份认证
+
+最常见的用户身份验证方法之一是验证用户名和密码。因此，Spring Security提供了对使用用户名和密码进行身份验证的全面支持。
+
+### 读取用户名和密码
+
+Spring Security提供了以下内置机制来从HttpServletRequest中读取用户名和密码:
+
+* 表单登录
+* 基本身份验证
+* 摘要式身份验证
+* 内存身份验证
+* jdbc的身份验证
+* LDAP身份验证
+
+
+验证方式太多，这里只挑重要的叙述, 表单登录和jdbc的身份验证
+
+### 存储机制
+
+每个支持的读取用户名和密码的机制都可以利用任何支持的存储机制:
+
+* 带有内存认证的简单存储
+* 使用JDBC身份验证的关系数据库
+* 使用UserDetailService自定义数据存储
+* 使用LDAP认证的LDAP存储
+
+## 5.1.表单登录
+
+关于表单登录就不多说了，就一个登录界面输入用户名密码登录，需要探讨的是Spring Security实现登录的具体过程。
+
+### SpringSecurityFilterChain 图:
+
+![SpringSecurityFilterChain](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/architecture/securityfilterchain.png)
+
+重定向到登录页面过程如下(图源于官网):
+
+![表单登录](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/unpwd/loginurlauthenticationentrypoint.png)
+
+文字描述:
+
+1. 首先用户像资源发出***未经身份验证***的请求 /private 。
+2. Spring Security 的 FilterSecurityInterceptor 检测到未认证，抛出 AccessDeniedException。
+3. ExceptionTranslationFilter 捕捉到异常，并发送一个重定向到配置的登录页面 AuthenticationEntryPoint。
+   在大多数情况下AuthenticationEntryPoint是LoginUrlAuthenticationEntryPoint．
+4. 然后浏览器将请求它被重定向到登录页面。
+
+提交用户名和密码后， ***UsernamePasswordAuthenticationFilter会验证用户名和密码***。
+UsernamePasswordAuthenticationFilter扩展了AbstractAuthenticationProcessingFilter，所以这个图看起来应该非常相似。
+
+验证用户名密码(图源于官网):
+
+下图建立在 SpringSecurityFilterChain 图基础上。
+
+![登录验证过程](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/unpwd/usernamepasswordauthenticationfilter.png)
+
+文字描述:
+
+1. 当用户提交用户名和密码后，UsernamePasswordAuthenticationFilter 通过从HttpServletRequest中提取用户名和密码,根据用户名和密码创建
+   UsernamePasswordAuthenticationToken。
+2. 接下来,将UsernamePasswordAuthenticationToken传递给AuthenticationManager进行身份验证。AuthenticationManager的类型取决于用户信息的存储方式。
+3. 如果验证失败，那就失败。
+
+* 清除 SecurityContextHolder
+* 执行 RememberMeServices.loginFail。 如果记住功能未配置，则不执行。
+* 执行 AuthenticationFailureHandler
+
+4. 如果验证成功，那么成功
+
+* SessionAuthenticationStrategy 提醒由新登录
+* 将 Authentication 设置在SecurityContextHolder.
+* 执行 RememberMeServices.loginSuccess。 如果记住功能未配置，则不执行。
+* ApplicationEventPublisher 发布一个 InteractiveAuthenticationSuccessEvent 事件。
+* 调用 AuthenticationSuccessHandler。
+
+默认情况下，Spring Security表单登录是启用的。然而，只要提供了任何基于servlet的配置，就必须显式地提供表单登录。
+
+例如:
+
+```
+protected void configure(HttpSecurity http) {http // ... .formLogin(withDefaults());｝
+```
+
+在这个配置中，Spring Security将呈现一个默认的登录页面。
+
+### 自定义表单登录
+
+```
+http // ... .formLogin(form -> form .loginPage("/login") .permitAll());｝
+```
+
+当在Spring Security配置中指定登录页面时，您将负责呈现页面。下面是一个Thymeleaf模板，它生成一个HTML登录表单，遵循/login登录页面:
+
+登录表单(login.html):
+
+```html
+<！DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+
+<head>
+    <title>Please Log In</title>
+</head>
+
+<body>
+<h1>Please Log In</h1>
+<div th:if="${param}">无效的用户名和密码。</div> <div th:如果= " ${参数}">您已注销。</div>
+<form th:action="@{/login}" method="post">
+    <div><input type="text" name="username" placeholder=" username"/></div>
+    <div><input type="password" name="password" placeholder=" password"/></div>
+    <input type="submit"
+           value=" login "/>
+</form>
+</body>
+
+</html>
+```
+
+关于默认的HTML表单有几个关键点:
+
+* 表单应该执行一个post to /login
+* 表单需要包含一个由Thymeleaf自动包含的CSRF令牌。
+* 表单应该在名为username的参数中指定用户名
+* 表单应该在名为password的参数中指定密码
+* 如果发现HTTP参数错误，则表示用户未能提供有效的用户名/密码
+* 如果能找到HTTP参数logout，则表示用户注销成功
+
+### 后台控制器 (loginController)
+
+```
+@Controller class LoginController {
+ @GetMapping("/login") 
+ String login() {return "login";}
+ }
+```
