@@ -62,11 +62,11 @@ Spring Security身份验证模型的核心是SecurityContextHolder。它包含Se
 
 ![SecurityContextHolder](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/securitycontextholder.png)
 
-SecurityContextHolder是Spring Security存储身份验证的详细信息的地方。
-Spring Security并不关心SecurityContextHolder是如何填充的。
+SecurityContextHolder是Spring Security存储身份验证的详细信息的地方。 Spring Security并不关心SecurityContextHolder是如何填充的。
 如果它包含一个值，那么它将被用作当前经过身份验证的用户。
 
 例子，设置SecurityContextHolder
+
 ```
 SecurityContext context = SecurityContextHolder.createEmptyContext();
 Authentication authentication= new TestingAuthenticationToken("username"， "password"， "ROLE_USER");
@@ -75,14 +75,34 @@ SecurityContextHolder.setContext(context);
 ```
 
 代码描述:
-1. 我们首先创建一个空的SecurityContext． 重要的是创建一个新的SecurityContext实例而不是使用SecurityContextHolder.getContext () .setAuthentication(身份验证)以避免多个线程之间的竞争条件。
-2. 接下来，我们创建一个新的身份验证对象。Spring安全不关心什么类型身份验证的实现SecurityContext． 在这里,我们使用TestingAuthenticationToken因为它很简单。更常见的生产场景是UsernamePasswordAuthenticationToken (userDetails,密码,当局)．
-3. 最后，我们设置SecurityContext在SecurityContextHolder
 
+1. 我们首先创建一个空的SecurityContext． 重要的是创建一个新的SecurityContext实例而不是使用SecurityContextHolder.getContext () .setAuthentication(
+   身份验证)以避免多个线程之间的竞争条件。
+2. 接下来，我们创建一个新的身份验证对象。Spring安全不关心什么类型身份验证的实现SecurityContext．
+   在这里,我们使用TestingAuthenticationToken因为它很简单。更常见的生产场景是UsernamePasswordAuthenticationToken (userDetails,密码,当局)．
+3. 最后，我们设置SecurityContext在SecurityContextHolder, Spring Security将使用Authentication授权。
 
+#### 4.1.1.访问当前认证用户
 
+用户认证授权好了，那么该如何获取授权用户信息呢？
 
+获取认证用户信息代码如下：
 
+```
+SecurityContext context = SecurityContextHolder.getContext(); 
+Authentication authentication = context.getAuthentication(); 
+String username = authentication.getName(); 
+Object principal = authentication.getPrincipal(); 
+Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities(); 
+```
+
+默认情况下，SecurityContextHolder使用ThreadLocal来存储这些细节
+
+### 4.2.SecurityContext
+
+SecurityContext是从SecurityContextHolder获得的。SecurityContext包含一个Authentication对象。
+
+### 4.3.Authentication
 
 Spring Security身份认证主要有两个目的:
 
@@ -95,7 +115,78 @@ Authentication包含有:
 * credentials - 通用密码
 * authorities - 权限集合
 
-# AuthenticationManager
+### 4.4.GrantedAuthority
 
-AuthenticationManager 是一个API，它定义了Spring Security的过滤器如何执行认证，即授予主体的授权。
-然后返回的身份认证被调用的控制器(即Spring Security的过滤器)设置在SecurityContextHolder上。
+GrantedAuthority 是授予用户的高级权限，比如角色或者范围。
+
+可以从Authentication.getAuthorities()方法获得grantedauthorys。此方法提供了一个GrantedAuthority对象的集合。
+
+### 4.5.AuthenticationManager
+
+AuthenticationManager是定义Spring安全过滤器如何执行身份验证的API。然后由调用AuthenticationManager的控制器（Spring Security Filter） 在
+SecurityContextHolder 上设置返回的身份验证。如果你没有集成Spring Security的过滤器，你可以直接设置SecurityContextHolder， 而不需要使用AuthenticationManager。
+
+### 4.6.ProviderManager
+
+ProviderManager 是 AuthenticationManager 最常用的实现。 将 ProviderManager 委托给 AuthenticationProviders 列表。 每个
+AuthenticationProvider 都有机会指示身份验证应该是成功、失败的，或者指示它不能做出决定并允许下游的 AuthenticationProvider 来决定。
+
+图示如下(图片来源官网):
+
+![ProviderManager](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/providermanager.png)
+
+实际上，每个AuthenticationProvider都知道如何执行特定类型的身份验证。例如，一个AuthenticationProvider可能能够验证用户名/密码，而另一个AuthenticationProvider可能能够验证SAML断言。
+这允许每个AuthenticationProvider执行一种非常特定的身份验证类型，同时支持多种类型的身份验证，并且只公开一个AuthenticationManager bean。
+
+ProviderManager 还允许配置一个可选的父级 AuthenticationManager，在没有 AuthenticationProvider 可以执行身份验证的情况下，会咨询该父级 AuthenticationManager。
+父类可以是任何类型的AuthenticationManager，但它通常是ProviderManager的一个实例。
+
+图示如下:
+
+![AuthenticationManager](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/providermanager-parent.png)
+
+事实上，多个 ProviderManager 实例可能共享同一个 AuthenticationManager. 这在有多个SecurityFilterChain实例的场景中是很常见的，这些实例有一些共同的身份验证(
+共享的父AuthenticationManager)，但也有不同的身份验证机制(不同的ProviderManager实例)
+
+图示如下:
+
+![共享 AuthenticationManager](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/providermanagers-parent.png)
+
+默认情况下，ProviderManager 将尝试从成功的身份验证请求返回的 Authentication 对象中，清除任何敏感凭据信息。 这是防止像密码这样的信息在 HttpSession 中保留的时间超过必要的时间。
+
+例如，当您使用用户对象的缓存来提高无状态应用程序的性能时，这可能会导致问题。如果Authentication包含对缓存中的对象的引用(比如UserDetails实例)，并且删除了它的凭证，
+那么它将不再能够根据缓存的值进行身份验证。如果使用缓存，则需要考虑到这一点。一个明显的解决方案是首先复制对象，要么在缓存实现中复制，要么在创建返回的Authentication对象的AuthenticationProvider中复制。
+或者，您可以禁用ProviderManager上的eraseCredentialsAfterAuthentication属性。
+
+### 4.7.AuthenticationProvider
+
+可以将多个AuthenticationProviders注入到ProviderManager中。每个AuthenticationProvider执行特定类型的身份验证。
+例如，DaoAuthenticationProvider支持基于用户名/密码的身份验证，而JwtAuthenticationProvider支持JWT令牌的身份验证。
+
+### 4.8.请求凭证与AuthenticationEntryPoint
+
+AuthenticationEntryPoint用于发送从客户端请求凭据的HTTP响应
+
+### 4.9.AbstractAuthenticationProcessingFilter
+
+AbstractAuthenticationProcessingFilter 用作对用户凭据进行身份验证的基本过滤器。在对凭据进行身份验证之前，Spring Security通常使用AuthenticationEntryPoint请求凭据。
+接下来， AbstractAuthenticationProcessingFilter 可以验证提交给它的任何身份验证请求。
+
+具体流程，如图示:
+
+![AbstractAuthenticationProcessingFilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/abstractauthenticationprocessingfilter.png)
+
+具体描述:
+1. 当用户提交他们的凭证时，AbstractAuthenticationProcessingFilter 会创建一个 Authentication，从 HttpServletRequest 到 Authentication。Authentication 创建以后，依赖AbstractAuthenticationProcessingFilter的子类。
+例如 用户名和密码提交到 HttpServletRequest后，UsernamePasswordAuthenticationFilter 创建一个 UsernamePasswordAuthenticationToken。
+2. 接下来将 Authentication 传递给 AuthenticationManager 进行身份验证。
+3. 如果身份验证失败，则失败。
+* SecurityContextHolder 被清除
+* RememberMeServices。loginFail被调用。如果记得我没有配置，这是一个no-op。
+* AuthenticationFailureHandler被调用。
+4. 如果身份验证成功，则成功。
+* 通知SessionAuthenticationStrategy一个新的登录。
+* 认证是在SecurityContextHolder上设置的。稍后SecurityContextPersistenceFilter将SecurityContext保存到HttpSession。
+* RememberMeServices。loginSuccess被调用。如果记得我没有配置，这是一个no-op。
+* ApplicationEventPublisher发布一个InteractiveAuthenticationSuccessEvent。
+* AuthenticationSuccessHandler被调用。
