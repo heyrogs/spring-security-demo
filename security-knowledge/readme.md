@@ -211,7 +211,6 @@ Spring Security提供了以下内置机制来从HttpServletRequest中读取用�
 * jdbc的身份验证
 * LDAP身份验证
 
-
 验证方式太多，这里只挑重要的叙述, 表单登录和jdbc的身份验证
 
 ### 存储机制
@@ -301,7 +300,8 @@ http // ... .formLogin(form -> form .loginPage("/login") .permitAll());｝
 
 <body>
 <h1>Please Log In</h1>
-<div th:if="${param}">无效的用户名和密码。</div> <div th:如果= " ${参数}">您已注销。</div>
+<div th:if="${param}">无效的用户名和密码。</div>
+<div th:如果=" ${参数}">您已注销。</div>
 <form th:action="@{/login}" method="post">
     <div><input type="text" name="username" placeholder=" username"/></div>
     <div><input type="password" name="password" placeholder=" password"/></div>
@@ -330,3 +330,16 @@ http // ... .formLogin(form -> form .loginPage("/login") .permitAll());｝
  String login() {return "login";}
  }
 ```
+
+## 5.2. JDBC的身份验证
+
+Spring Security 的 JdbcDaoImpl 实现了 UserDetailService，用来查询数据库中用户名和密码以便验证。JdbcUserDetailsManager 继承了 JdbcDaoImpl, 通过
+UserDetailsManager 接口类实现对用户信息的管理(UserDetails), SpringSecurity 被配置为接受用户名/密码身份验证时，它将使用 UserDetails 来做身份 验证。
+
+接下来具体讨论:
+
+* Spring Security JDBC 身份验证使用的默认模式
+* 设置数据源
+* JdbcUserDetailsManager bean
+
+### 
