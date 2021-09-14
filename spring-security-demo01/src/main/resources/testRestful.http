@@ -1,0 +1,12 @@
+
+### 登录调试
+POST http://localhost:8080/login?username=admin&password=123456
+
+
+### 首页访问
+
+GET http://localhost:8080/user/index
+
+### 登出
+
+GET http://localhost:8080/logout
