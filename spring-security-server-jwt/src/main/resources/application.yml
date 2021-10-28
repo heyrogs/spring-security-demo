@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+
+spring:
+  datasource:
+    name: hikari
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://myserver:8505/account?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+  profiles:
+    active: dev
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

@@ -1,17 +1,15 @@
 package com.rog;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-/**
- * @author Hey，rog
- * @since 2021/8/12 星期四
- **/
+@MapperScan("com.rog.mapper")
 @SpringBootApplication
-public class SecurityKnowledgeApplication {
+public class SpringSecurityServerJwtApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(SecurityKnowledgeApplication.class, args);
+        SpringApplication.run(SpringSecurityServerJwtApplication.class, args);
     }
 
 }
